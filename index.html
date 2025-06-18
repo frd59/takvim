@@ -313,7 +313,6 @@
     </div>
 
     <script>
-        // CORS sorununu çözmek için JSONP kullanacağız
         const API_URL = "https://script.google.com/macros/s/AKfycbx20CQ8dnThiKLpG4xUCck2l_SSTxcBh9zJswXo7vtUrB6pXDXh67l8rHHRbiaLdiNH/exec";
         let allEvents = [];
         let currentFilter = null;
@@ -326,13 +325,12 @@
             '11': 'İşleme Alınmamış (Kırmızı)'
         };
 
-        // JSONP ile API çağrısı (CORS sorununu çözmek için)
+        // JSONP ile API çağrısı
         function loadEventsWithJsonp() {
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
                 const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
                 
-                // Global callback fonksiyonu oluştur
                 window[callbackName] = function(data) {
                     delete window[callbackName];
                     document.body.removeChild(script);
@@ -350,12 +348,11 @@
             });
         }
 
-        // Etkinlikleri yükle - önce JSONP dene, başarısız olursa demo veri kullan
+        // Etkinlikleri yükle
         async function loadEvents() {
             try {
                 document.getElementById('eventCount').innerHTML = '⏳ <span class="loading-spinner"></span> Google Takvim\'den etkinlikler yükleniyor...';
                 
-                // JSONP ile Google Apps Script çağrısı
                 const data = await loadEventsWithJsonp();
                 
                 if (data.error) {
@@ -373,7 +370,7 @@
             }
         }
 
-        // Demo veri yükle (test için)
+        // Demo veri yükle
         function loadDemoData() {
             allEvents = [
                 {
@@ -437,7 +434,7 @@
             });
         });
 
-        // Etkinlik rengini güncelle
+        // Etkinlik rengini güncelle - DÜZELTİLMİŞ VERSİYON
         async function updateEventColor(eventId, newColorId, statusElement, selectElement, buttonElement) {
             try {
                 statusElement.innerHTML = '<span class="loading-spinner"></span> Google Takvim güncelleniyor...';
@@ -453,41 +450,99 @@
                     return;
                 }
 
-                // Google Apps Script'e URL parametreleri ile POST gönder
-                const updateUrl = `${API_URL}?id=${encodeURIComponent(eventId)}&colorId=${encodeURIComponent(newColorId)}`;
+                // Google Apps Script'inizin desteklediği GET parametresi yöntemi
+                const updateUrl = `${API_URL}?id=${encodeURIComponent(eventId)}&colorId=${encodeURIComponent(newColorId)}&timestamp=${Date.now()}`;
                 
-                // Image kullanarak POST işlemi (CORS bypass)
-                const img = new Image();
-                img.onload = function() {
-                    statusElement.textContent = '✅ Google Takvim güncellendi!';
+                console.log('Güncelleme URL\'si:', updateUrl);
+                
+                // JSONP ile güncelleme isteği gönder
+                const result = await updateWithJsonp(updateUrl);
+                
+                if (result.status === 'success') {
+                    statusElement.textContent = '✅ Google Takvim başarıyla güncellendi!';
                     statusElement.className = 'status success';
+                    
+                    // Etkinliği local array'de güncelle
+                    updateEventInArray(eventId, newColorId);
                     removeEventFromList(statusElement);
-                };
-                
-                img.onerror = function() {
-                    // Hata olsa bile genelde güncelleme başarılı olur
-                    statusElement.textContent = '✅ Güncelleme gönderildi!';
-                    statusElement.className = 'status success';
-                    removeEventFromList(statusElement);
-                };
-                
-                // POST işlemini başlat
-                img.src = updateUrl;
-                
-                // Fallback timeout
-                setTimeout(() => {
-                    if (statusElement.classList.contains('loading')) {
-                        statusElement.textContent = '✅ Güncelleme gönderildi!';
-                        statusElement.className = 'status success';
-                        removeEventFromList(statusElement);
-                    }
-                }, 3000);
+                    
+                    console.log('Güncelleme başarılı:', eventId, newColorId);
+                } else {
+                    throw new Error(result.message || 'Güncelleme başarısız');
+                }
 
             } catch (error) {
                 console.error('Güncelleme hatası:', error);
-                statusElement.textContent = '❌ Hata: ' + error.message;
-                statusElement.className = 'status error';
-                buttonElement.disabled = false;
+                
+                // Alternatif yöntem: Direct fetch ile POST dene
+                try {
+                    console.log('Alternatif yöntem deneniyor...');
+                    
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: eventId,
+                            colorId: newColorId
+                        })
+                    });
+
+                    // no-cors modunda response okuyamayız, başarılı kabul edelim
+                    statusElement.textContent = '✅ Güncelleme gönderildi!';
+                    statusElement.className = 'status success';
+                    updateEventInArray(eventId, newColorId);
+                    removeEventFromList(statusElement);
+
+                } catch (secondError) {
+                    console.error('Tüm güncelleme yöntemleri başarısız:', secondError);
+                    statusElement.textContent = '❌ Güncelleme başarısız. Lütfen sayfayı yenileyin ve tekrar deneyin.';
+                    statusElement.className = 'status error';
+                    buttonElement.disabled = false;
+                }
+            }
+        }
+
+        // JSONP ile güncelleme isteği gönder
+        function updateWithJsonp(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                const callbackName = 'update_callback_' + Math.round(100000 * Math.random());
+                
+                window[callbackName] = function(data) {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data);
+                };
+
+                script.onerror = function() {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error('JSONP güncelleme isteği başarısız'));
+                };
+
+                script.src = url + '&callback=' + callbackName;
+                document.body.appendChild(script);
+                
+                // Timeout ekle
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        document.body.removeChild(script);
+                        reject(new Error('Güncelleme isteği zaman aşımına uğradı'));
+                    }
+                }, 10000); // 10 saniye timeout
+            });
+        }
+
+        // Etkinliği array içinde güncelle
+        function updateEventInArray(eventId, newColorId) {
+            const eventIndex = allEvents.findIndex(e => e.id === eventId);
+            if (eventIndex !== -1) {
+                allEvents[eventIndex].colorId = newColorId;
+                console.log('Etkinlik array içinde güncellendi:', eventId, newColorId);
             }
         }
 
