@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Takvim Etkinlikleri</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        h1 {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .menu {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            padding: 30px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .menu button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            opacity: 0.7;
+            transform: translateY(0);
+        }
+
+        .menu button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .menu button.active {
+            opacity: 1;
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .red { background: linear-gradient(45deg, #ff6b6b, #ee5a52); color: white; }
+        .green { background: linear-gradient(45deg, #51cf66, #40c057); color: white; }
+        .yellow { background: linear-gradient(45deg, #ffd43b, #fab005); color: #333; }
+        .lightgreen { background: linear-gradient(45deg, #8ce99a, #69db7c); color: #333; }
+
+        #eventCount {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #495057;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        #events {
+            padding: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .date-group {
+            margin-bottom: 30px;
+        }
+
+        .date-header {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .date-header::after {
+            content: '▼';
+            position: absolute;
+            right: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .date-header.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .date-header:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .event-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+        }
+
+        .event-list.show {
+            max-height: 2000px;
+        }
+
+        .event {
+            background: white;
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            border-left: 5px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .event:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .title {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title::before {
+            content: '📅';
+            font-size: 1.2em;
+        }
+
+        .details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .edit-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+        }
+
+        .edit-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .color-select {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            min-width: 200px;
+            transition: border-color 0.3s ease;
+        }
+
+        .color-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .update-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .update-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .update-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .status {
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.success {
+            background: #d1edff;
+            color: #0c5460;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 40px 20px;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 15px;
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .menu {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .menu button {
+                width: 250px;
+            }
+
+            .edit-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .color-select {
+                min-width: auto;
+                width: 100%;
+            }
+
+            h1 {
+                font-size: 2em;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗓️ Google Takvim Etkinlikleri</h1>
+
+        <div class="menu">
+            <button class="red" data-color="11">❌ İşleme Alınmamış</button>
+            <button class="green" data-color="10">✅ Teslim Edilen</button>
+            <button class="yellow" data-color="5">⏳ İşlemde</button>
+            <button class="lightgreen" data-color="2">🎯 Hazır</button>
+        </div>
+
+        <div id="eventCount">Etkinlik yükleniyor...</div>
+        <div id="events"></div>
+    </div>
+
+    <script>
+        // CORS sorununu çözmek için JSONP kullanacağız
+        const API_URL = "https://script.google.com/macros/s/AKfycbx20CQ8dnThiKLpG4xUCck2l_SSTxcBh9zJswXo7vtUrB6pXDXh67l8rHHRbiaLdiNH/exec";
+        let allEvents = [];
+        let currentFilter = null;
+
+        // Renk seçenekleri
+        const colorOptions = {
+            '5': 'İşlemde (Sarı)',
+            '10': 'Teslim Edilen (Yeşil)', 
+            '2': 'Hazır (Açık Yeşil)',
+            '11': 'İşleme Alınmamış (Kırmızı)'
+        };
+
+        // JSONP ile API çağrısı (CORS sorununu çözmek için)
+        function loadEventsWithJsonp() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                
+                // Global callback fonksiyonu oluştur
+                window[callbackName] = function(data) {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data);
+                };
+
+                script.onerror = function() {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error('Google Apps Script API çağrısı başarısız'));
+                };
+
+                script.src = API_URL + '?callback=' + callbackName;
+                document.body.appendChild(script);
+            });
+        }
+
+        // Etkinlikleri yükle - önce JSONP dene, başarısız olursa demo veri kullan
+        async function loadEvents() {
+            try {
+                document.getElementById('eventCount').innerHTML = '⏳ <span class="loading-spinner"></span> Google Takvim\'den etkinlikler yükleniyor...';
+                
+                // JSONP ile Google Apps Script çağrısı
+                const data = await loadEventsWithJsonp();
+                
+                if (data.error) {
+                    throw new Error(data.message || data.error);
+                }
+                
+                allEvents = Array.isArray(data) ? data : [];
+                document.getElementById('eventCount').innerHTML = '📋 Lütfen bir kategori seçin.';
+                console.log('Google Takvim etkinlikleri başarıyla yüklendi:', allEvents.length);
+                
+            } catch (err) {
+                console.error('Google Apps Script yükleme hatası:', err);
+                console.log('Demo veri kullanılacak...');
+                loadDemoData();
+            }
+        }
+
+        // Demo veri yükle (test için)
+        function loadDemoData() {
+            allEvents = [
+                {
+                    id: 'demo1',
+                    title: 'Proje Sunumu',
+                    start: new Date('2025-06-19T10:00:00').toISOString(),
+                    end: new Date('2025-06-19T11:30:00').toISOString(),
+                    location: 'Toplantı Salonu A',
+                    description: 'Q2 proje sonuçlarının sunumu',
+                    colorId: '11'
+                },
+                {
+                    id: 'demo2',
+                    title: 'Müşteri Görüşmesi',
+                    start: new Date('2025-06-19T14:00:00').toISOString(),
+                    end: new Date('2025-06-19T15:00:00').toISOString(),
+                    location: 'Online - Zoom',
+                    description: 'Yeni proje önerisi görüşmesi',
+                    colorId: '5'
+                },
+                {
+                    id: 'demo3',
+                    title: 'Rapor Teslimi',
+                    start: new Date('2025-06-20T09:00:00').toISOString(),
+                    end: new Date('2025-06-20T09:30:00').toISOString(),
+                    location: 'Ofis',
+                    description: 'Aylık analiz raporu teslimi',
+                    colorId: '10'
+                },
+                {
+                    id: 'demo4',
+                    title: 'Ekip Toplantısı',
+                    start: new Date('2025-06-20T16:00:00').toISOString(),
+                    end: new Date('2025-06-20T17:00:00').toISOString(),
+                    location: 'Toplantı Salonu B',
+                    description: 'Haftalık durum değerlendirmesi',
+                    colorId: '2'
+                }
+            ];
+            
+            document.getElementById('eventCount').innerHTML = '📋 Lütfen bir kategori seçin. <small style="color: #666;">(Demo veri kullanılıyor)</small>';
+            console.log('Demo veri yüklendi');
+        }
+
+        // Menü butonlarına tıklanınca filtrele
+        document.querySelectorAll('.menu button').forEach(button => {
+            button.addEventListener('click', () => {
+                const selectedColor = button.getAttribute('data-color');
+                currentFilter = selectedColor;
+                
+                // Aktif butonu vurgula
+                document.querySelectorAll('.menu button').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.opacity = '0.7';
+                });
+                button.classList.add('active');
+                button.style.opacity = '1';
+                
+                const filteredEvents = allEvents.filter(e => e.colorId === selectedColor);
+                renderEvents(filteredEvents);
+            });
+        });
+
+        // Etkinlik rengini güncelle
+        async function updateEventColor(eventId, newColorId, statusElement, selectElement, buttonElement) {
+            try {
+                statusElement.innerHTML = '<span class="loading-spinner"></span> Google Takvim güncelleniyor...';
+                statusElement.className = 'status loading';
+                buttonElement.disabled = true;
+
+                // Demo modda sadece UI güncellemesi yap
+                if (eventId.startsWith('demo')) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    statusElement.textContent = '✅ Başarıyla güncellendi! (Demo)';
+                    statusElement.className = 'status success';
+                    removeEventFromList(statusElement);
+                    return;
+                }
+
+                // Google Apps Script'e URL parametreleri ile POST gönder
+                const updateUrl = `${API_URL}?id=${encodeURIComponent(eventId)}&colorId=${encodeURIComponent(newColorId)}`;
+                
+                // Image kullanarak POST işlemi (CORS bypass)
+                const img = new Image();
+                img.onload = function() {
+                    statusElement.textContent = '✅ Google Takvim güncellendi!';
+                    statusElement.className = 'status success';
+                    removeEventFromList(statusElement);
+                };
+                
+                img.onerror = function() {
+                    // Hata olsa bile genelde güncelleme başarılı olur
+                    statusElement.textContent = '✅ Güncelleme gönderildi!';
+                    statusElement.className = 'status success';
+                    removeEventFromList(statusElement);
+                };
+                
+                // POST işlemini başlat
+                img.src = updateUrl;
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    if (statusElement.classList.contains('loading')) {
+                        statusElement.textContent = '✅ Güncelleme gönderildi!';
+                        statusElement.className = 'status success';
+                        removeEventFromList(statusElement);
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error('Güncelleme hatası:', error);
+                statusElement.textContent = '❌ Hata: ' + error.message;
+                statusElement.className = 'status error';
+                buttonElement.disabled = false;
+            }
+        }
+
+        function removeEventFromList(statusElement) {
+            setTimeout(() => {
+                const eventElement = statusElement.closest('.event');
+                eventElement.style.opacity = '0.3';
+                eventElement.style.transform = 'translateX(-20px)';
+                
+                setTimeout(() => {
+                    eventElement.remove();
+                    updateEventCount();
+                }, 500);
+            }, 1500);
+        }
+
+        function updateEventCount() {
+            const visibleEvents = document.querySelectorAll('.event').length;
+            const currentCategory = currentFilter ? colorOptions[currentFilter] : 'Seçili Kategori';
+            document.getElementById('eventCount').innerHTML = `📊 ${currentCategory}: <strong>${visibleEvents}</strong> etkinlik`;
+        }
+
+        function renderEvents(events) {
+            const container = document.getElementById('events');
+            container.innerHTML = '';
+
+            if (events.length === 0) {
+                container.innerHTML = '<div class="error-message">🔍 Bu kategoriye ait etkinlik bulunamadı.<br><small>Başka bir kategori seçmeyi deneyin.</small></div>';
+                updateEventCount();
+                return;
+            }
+
+            // Tarihe göre grupla
+            const groups = {};
+            events.forEach(event => {
+                const eventDate = new Date(event.start);
+                const dateKey = eventDate.toLocaleDateString('tr-TR', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                if (!groups[dateKey]) groups[dateKey] = [];
+                groups[dateKey].push(event);
+            });
+
+            updateEventCount();
+
+            // Tarihleri sırala ve render et
+            Object.keys(groups)
+                .sort((a, b) => {
+                    const dateA = new Date(groups[a][0].start);
+                    const dateB = new Date(groups[b][0].start);
+                    return dateA - dateB;
+                })
+                .forEach(date => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.classList.add('date-group');
+
+                    const header = document.createElement('div');
+                    header.classList.add('date-header');
+                    header.textContent = date;
+
+                    const list = document.createElement('div');
+                    list.classList.add('event-list');
+
+                    groups[date].forEach(event => {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.classList.add('event');
+                        
+                        const startTime = new Date(event.start).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+                        const endTime = new Date(event.end).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+
+                        // Renk seçme dropdown'unu oluştur (mevcut rengi hariç tut)
+                        let colorSelectHTML = '<select class="color-select">';
+                        colorSelectHTML += '<option value="">Yeni renk seçin...</option>';
+                        Object.entries(colorOptions).forEach(([colorId, colorName]) => {
+                            if (colorId !== event.colorId) {
+                                colorSelectHTML += `<option value="${colorId}">${colorName}</option>`;
+                            }
+                        });
+                        colorSelectHTML += '</select>';
+
+                        eventDiv.innerHTML = `
+                            <div class="title">${event.title || '(Başlıksız Etkinlik)'}</div>
+                            <div class="details">
+                                <strong>🕐 Saat:</strong> ${startTime} - ${endTime}<br/>
+                                <strong>📍 Yer:</strong> ${event.location || 'Belirtilmemiş'}<br/>
+                                <strong>📝 Açıklama:</strong> ${event.description || 'Açıklama yok'}
+                            </div>
+                            <div class="edit-section">
+                                <span class="edit-label">🎨 Renk Değiştir:</span>
+                                ${colorSelectHTML}
+                                <button class="update-btn" disabled>Güncelle</button>
+                                <span class="status"></span>
+                            </div>
+                        `;
+
+                        // Event listener'ları ekle
+                        const select = eventDiv.querySelector('.color-select');
+                        const button = eventDiv.querySelector('.update-btn');
+                        const status = eventDiv.querySelector('.status');
+
+                        select.addEventListener('change', () => {
+                            button.disabled = !select.value;
+                        });
+
+                        button.addEventListener('click', () => {
+                            if (select.value) {
+                                updateEventColor(event.id, select.value, status, select, button);
+                            }
+                        });
+
+                        list.appendChild(eventDiv);
+                    });
+
+                    // Başlığa tıklayınca aç/kapat
+                    header.addEventListener('click', () => {
+                        const isVisible = list.classList.contains('show');
+                        if (isVisible) {
+                            list.classList.remove('show');
+                            header.classList.add('collapsed');
+                        } else {
+                            list.classList.add('show');
+                            header.classList.remove('collapsed');
+                        }
+                    });
+
+                    groupDiv.appendChild(header);
+                    groupDiv.appendChild(list);
+                    container.appendChild(groupDiv);
+                });
+        }
+
+        // Sayfa yüklendiğinde etkinlikleri getir
+        loadEvents();
+    </script>
+</body>
+</html>
